@@ -1,0 +1,25 @@
+# Cấu hình Render (Blueprint): tạo backend .NET ở gói MIỄN PHÍ.
+# Các giá trị "sync: false" là bí mật — Render sẽ hỏi Thầy nhập khi tạo, không nằm trong code.
+services:
+  - type: web
+    name: dvna-api
+    runtime: docker
+    plan: free
+    region: singapore
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: Cors__AllowedOrigins__0
+        value: https://ngocanh122003.github.io
+      - key: ConnectionStrings__Default
+        sync: false
+      - key: Jwt__Key
+        generateValue: true
+      - key: Admin__InitialPassword
+        sync: false
+      - key: Email__ResendApiKey
+        sync: false

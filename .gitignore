@@ -1,0 +1,18 @@
+# .NET
+backend/bin/
+backend/obj/
+*.user
+.vs/
+
+# Node / Next.js (xem thêm frontend/.gitignore)
+node_modules/
+
+# Hệ điều hành / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Bí mật — không bao giờ đưa lên GitHub
+*.env.local
+secrets.json
