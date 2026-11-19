@@ -72,6 +72,7 @@ export function useSession() {
 // Gọi API quản trị kèm vé đăng nhập. Trả về { ok, data, errors }.
 // Hết phiên (401) thì xoá phiên → khung quản trị tự chuyển về trang đăng nhập.
 export async function adminFetch(path, { method = "GET", body } = {}) {
+  if (!API_URL) return { ok: false, errors: ["Website chưa được kết nối với máy chủ (backend)."] };
   const session = getSession();
   const headers = { "Content-Type": "application/json" };
   if (session) headers.Authorization = `Bearer ${session.token}`;

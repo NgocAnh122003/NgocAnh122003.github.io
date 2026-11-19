@@ -2,16 +2,20 @@
 
 import { useEffect, useState } from "react";
 
-// Địa chỉ backend .NET — cấu hình trong file .env.development / .env.production
-export const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5170";
+// Địa chỉ backend .NET — trên máy: file .env.development; trên GitHub: biến repo API_URL.
+// Để trống = chưa có backend → trang dùng dữ liệu dự phòng.
+export const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
+
+const NO_SERVER = "Không kết nối được máy chủ. Em thử lại sau ít phút hoặc nhắn Zalo cho thầy nhé.";
 
 // Lấy dữ liệu từ API. Trong lúc chờ (hoặc khi API lỗi) dùng dữ liệu mẫu "fallback"
 // để trang luôn hiển thị được, kể cả khi máy chủ miễn phí đang "ngủ".
 // Trả về { data, status } với status: "loading" | "ready" | "error".
 export function useApi(path, fallback) {
-  const [state, setState] = useState({ data: fallback, status: "loading" });
+  const [state, setState] = useState({ data: fallback, status: API_URL ? "loading" : "error" });
 
   useEffect(() => {
+    if (!API_URL) return;
     let cancelled = false;
     fetch(API_URL + path)
       .then((res) => (res.ok ? res.json() : Promise.reject(res.status)))
@@ -32,6 +36,7 @@ export function useApi(path, fallback) {
 
 // Gửi dữ liệu JSON lên API. Trả về { ok, data, errors }.
 export async function postJson(path, body, timeoutMs = 60000) {
+  if (!API_URL) return { ok: false, errors: [NO_SERVER] };
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -49,10 +54,7 @@ export async function postJson(path, body, timeoutMs = 60000) {
       : [data?.detail ?? "Có lỗi xảy ra, em thử lại sau nhé."];
     return { ok: false, errors };
   } catch {
-    return {
-      ok: false,
-      errors: ["Không kết nối được máy chủ. Em thử lại sau ít phút hoặc nhắn Zalo cho thầy nhé."],
-    };
+    return { ok: false, errors: [NO_SERVER] };
   } finally {
     clearTimeout(timer);
   }
