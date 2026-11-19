@@ -5,18 +5,19 @@ Website giới thiệu, khoá học và tài liệu KHTN 7–9 & Vật lý 10–
 ```
 DVNAWEB/
 ├── frontend/   ← Next.js (giao diện + trang quản trị /admin) → đăng lên GitHub Pages
-└── backend/    ← ASP.NET Core 9 Web API + SQL Server → đăng lên Render
+└── backend/    ← ASP.NET Core 9 Web API + PostgreSQL → đăng lên Render, database ở Neon
 ```
 
 ## Chạy trên máy
 
-**Backend** (cần .NET 9 SDK):
+**Backend** (cần .NET 9 SDK và PostgreSQL):
 ```bash
 cd backend
+# lần đầu: lưu chuỗi kết nối PostgreSQL trên máy (tự gõ, thay MẬT_KHẨU)
+dotnet user-secrets set "ConnectionStrings:Default" "Host=localhost;Database=dvna_edu;Username=postgres;Password=MẬT_KHẨU"
 dotnet run --launch-profile http   # kiểm tra: http://localhost:5170/api/health
 ```
-Lần chạy đầu, backend tự tạo database `DvnaEdu` trong `.\SQLEXPRESS`, nạp dữ liệu ban đầu
-và tạo tài khoản quản trị.
+Lần chạy đầu, backend tự tạo database `dvna_edu`, nạp dữ liệu ban đầu và tạo tài khoản quản trị.
 
 **Frontend** (cần Node.js):
 ```bash
@@ -33,22 +34,25 @@ Lưu bằng `dotnet user-secrets` trong thư mục `backend`:
 |---|---|
 | `Jwt:Key` | Chuỗi ngẫu nhiên ≥ 32 ký tự để ký phiên đăng nhập (đã tạo sẵn) |
 | `Admin:InitialPassword` | Mật khẩu ban đầu của tài khoản `admin` (chỉ dùng khi chưa có tài khoản) |
-| `Email:Username` | Địa chỉ Gmail dùng để **gửi** thông báo |
-| `Email:Password` | **Mật khẩu ứng dụng** của Gmail đó (không phải mật khẩu Gmail thường) |
+| `ConnectionStrings:Default` | Chuỗi kết nối PostgreSQL |
+| `Email:ResendApiKey` | Khoá API của Resend (`re_...`) để gửi email thông báo |
 
 Email **nhận** thông báo: `Email:To` trong `backend/appsettings.json` (mặc định `dvna010203@gmail.com`).
 
 ## Bật thông báo email khi có đơn đăng ký
 
-1. Bật **xác minh 2 bước** cho tài khoản Gmail: <https://myaccount.google.com/security>
-2. Tạo **mật khẩu ứng dụng**: <https://myaccount.google.com/apppasswords> → đặt tên "DVNA web" → Google cho một mã 16 ký tự.
-3. Lưu vào máy (tự gõ trong terminal của Thầy, đừng gửi mã này cho ai):
-   ```bash
-   cd backend
-   dotnet user-secrets set "Email:Username" "email-gui@gmail.com"
-   dotnet user-secrets set "Email:Password" "mã 16 ký tự"
-   ```
-4. Khởi động lại backend. Chưa cấu hình thì đơn vẫn được lưu, chỉ không gửi mail.
+1. Đăng ký <https://resend.com> bằng đúng email nhận thông báo (gói miễn phí chỉ gửi tới email đã đăng ký).
+2. **API Keys → Create API Key** (quyền *Sending access*) → được mã `re_...` (đừng gửi mã này cho ai).
+3. Trên máy: `dotnet user-secrets set "Email:ResendApiKey" "re_..."`; trên Render: biến `Email__ResendApiKey`.
+4. Chưa cấu hình thì đơn vẫn được lưu, chỉ không gửi mail.
+
+## Đưa lên mạng (0đ)
+
+| Phần | Dịch vụ | Cấu hình |
+|---|---|---|
+| Frontend | GitHub Pages | Tự đăng khi push lên `main`. Biến repo `API_URL` = địa chỉ backend |
+| Backend | Render (free) | Tạo bằng Blueprint từ `render.yaml`; tự nhập `ConnectionStrings__Default`, `Admin__InitialPassword`, `Email__ResendApiKey` |
+| Database | Neon (free) | Dán nguyên chuỗi `postgresql://...` của Neon vào `ConnectionStrings__Default` |
 
 ## Trang quản trị `/admin`
 
@@ -78,8 +82,8 @@ Bảo mật: mật khẩu được mã hoá; sai 5 lần thì khoá 15 phút; ph
 
 ## Lộ trình
 - [x] Bước 1: Khung dự án + trang chủ
-- [x] Bước 2: Database SQL Server + API, form đăng ký, nút Zalo, chính sách bảo mật
+- [x] Bước 2: Database + API, form đăng ký, nút Zalo, chính sách bảo mật
 - [x] Bước 3: Trang quản trị `/admin` + thông báo email
-- [ ] Bước 4: Đưa lên mạng (GitHub Pages + Render + Azure SQL)
+- [ ] Bước 4: Đưa lên mạng (GitHub Pages + Render + Neon)
 - [ ] Bước 5: Trắc nghiệm online (3 dạng câu thi TN THPT)
 - [ ] Bước 6: Tài khoản học sinh, lớp học, bảo vệ tài liệu

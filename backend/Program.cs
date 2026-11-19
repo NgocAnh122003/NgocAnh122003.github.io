@@ -8,14 +8,15 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Database SQL Server (chuỗi kết nối trong appsettings / biến môi trường).
-// Tự thử lại khi Azure SQL miễn phí đang "thức dậy" sau khi tạm dừng.
+// Database PostgreSQL (chuỗi kết nối trong user-secrets / biến môi trường).
+// Tự thử lại khi database miễn phí của Neon đang "thức dậy" sau khi tạm nghỉ.
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("Default"),
-        sql => sql.EnableRetryOnFailure(maxRetryCount: 5, maxRetryDelay: TimeSpan.FromSeconds(10), errorNumbersToAdd: null)));
+    options.UseNpgsql(PgConnectionString(builder.Configuration.GetConnectionString("Default")),
+        pg => pg.EnableRetryOnFailure(maxRetryCount: 5, maxRetryDelay: TimeSpan.FromSeconds(10), errorCodesToAdd: null)));
 
 // Render đứng trước ứng dụng như một proxy → lấy IP thật của người dùng từ X-Forwarded-For
 builder.Services.Configure<ForwardedHeadersOptions>(o =>
@@ -100,6 +101,24 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+// Neon cho chuỗi dạng "postgresql://user:pass@host/db?sslmode=require" → đổi sang dạng Npgsql hiểu được.
+// Chuỗi dạng "Host=...;Database=..." thì giữ nguyên.
+static string? PgConnectionString(string? raw)
+{
+    if (raw is null || !(raw.StartsWith("postgres://") || raw.StartsWith("postgresql://"))) return raw;
+    var uri = new Uri(raw);
+    var user = uri.UserInfo.Split(':', 2);
+    return new NpgsqlConnectionStringBuilder
+    {
+        Host = uri.Host,
+        Port = uri.Port > 0 ? uri.Port : 5432,
+        Database = uri.AbsolutePath.TrimStart('/'),
+        Username = Uri.UnescapeDataString(user[0]),
+        Password = user.Length > 1 ? Uri.UnescapeDataString(user[1]) : null,
+        SslMode = SslMode.Require,
+    }.ConnectionString;
+}
 
 static RateLimitPartition<string> PerIp(HttpContext http, int limit, TimeSpan window) =>
     RateLimitPartition.GetFixedWindowLimiter(

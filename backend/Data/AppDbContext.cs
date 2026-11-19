@@ -64,8 +64,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.Message).HasMaxLength(1000);
             e.Property(x => x.Note).HasMaxLength(1000);
             e.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
-            // Thời gian lưu theo giờ UTC; đánh dấu lại khi đọc ra để trình duyệt đổi đúng sang giờ Việt Nam
-            e.Property(x => x.CreatedAt).HasConversion(v => v, v => DateTime.SpecifyKind(v, DateTimeKind.Utc));
+            // Lưu theo giờ UTC (timestamptz) — trình duyệt tự đổi sang giờ Việt Nam
             e.HasIndex(x => x.CreatedAt);
         });
     }
