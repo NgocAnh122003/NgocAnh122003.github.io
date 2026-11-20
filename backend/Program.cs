@@ -72,6 +72,7 @@ var app = builder.Build();
 
 // Tự tạo/cập nhật bảng và nạp dữ liệu ban đầu khi khởi động.
 // Database chưa sẵn sàng thì vẫn chạy tiếp (trang chủ dùng dữ liệu dự phòng), lần khởi động sau sẽ thử lại.
+app.Logger.LogInformation("Database: {Info}", DescribeConnection(builder.Configuration.GetConnectionString("Default")));
 using (var scope = app.Services.CreateScope())
 {
     try
@@ -109,18 +110,49 @@ static string? PgConnectionString(string? raw)
 {
     var start = raw?.IndexOf("postgres", StringComparison.Ordinal) ?? -1;
     if (start < 0 || !raw![start..].Contains("://")) return raw?.Trim();
-    raw = raw[start..].Trim().TrimEnd('\'', '"', ';');
-    var uri = new Uri(raw);
-    var user = uri.UserInfo.Split(':', 2);
+    var rest = raw[(raw.IndexOf("://", start, StringComparison.Ordinal) + 3)..].Trim().TrimEnd('\'', '"', ';');
+
+    // Tự tách thay vì dùng Uri: mật khẩu có ký tự đặc biệt (/ # ? @) vẫn đọc đúng.
+    // Dạng: user:pass@host[:port]/db?tham-so — tách theo dấu @ cuối cùng.
+    var at = rest.LastIndexOf('@');
+    var query = rest.IndexOf('?', at + 1);
+    if (query >= 0) rest = rest[..query];
+    var userInfo = at >= 0 ? rest[..at] : "";
+    var hostPart = at >= 0 ? rest[(at + 1)..] : rest;
+
+    var slash = hostPart.IndexOf('/');
+    var hostPort = slash >= 0 ? hostPart[..slash] : hostPart;
+    var colon = hostPort.LastIndexOf(':');
+    var hasPort = colon >= 0 && int.TryParse(hostPort[(colon + 1)..], out _);
+    var sep = userInfo.IndexOf(':');
+
     return new NpgsqlConnectionStringBuilder
     {
-        Host = uri.Host,
-        Port = uri.Port > 0 ? uri.Port : 5432,
-        Database = uri.AbsolutePath.TrimStart('/'),
-        Username = Uri.UnescapeDataString(user[0]),
-        Password = user.Length > 1 ? Uri.UnescapeDataString(user[1]) : null,
+        Host = hasPort ? hostPort[..colon] : hostPort,
+        Port = hasPort ? int.Parse(hostPort[(colon + 1)..]) : 5432,
+        Database = Uri.UnescapeDataString(slash >= 0 ? hostPart[(slash + 1)..] : ""),
+        Username = Uri.UnescapeDataString(sep >= 0 ? userInfo[..sep] : userInfo),
+        Password = sep >= 0 ? Uri.UnescapeDataString(userInfo[(sep + 1)..]) : null,
         SslMode = SslMode.Require,
     }.ConnectionString;
+}
+
+// Mô tả chuỗi kết nối để ghi vào log — KHÔNG bao giờ in mật khẩu.
+static string DescribeConnection(string? raw)
+{
+    if (string.IsNullOrWhiteSpace(raw)) return "chưa cấu hình ConnectionStrings:Default";
+    try
+    {
+        var b = new NpgsqlConnectionStringBuilder(PgConnectionString(raw));
+        return $"host={b.Host}, port={b.Port}, db={b.Database}, user={b.Username}, " +
+               $"mật khẩu: {(string.IsNullOrEmpty(b.Password) ? "KHÔNG CÓ" : $"có ({b.Password.Length} ký tự)")}";
+    }
+    catch (Exception ex)
+    {
+        // Chỉ in "hình dạng" chuỗi: chữ và số thay bằng x, giữ dấu câu để thấy chỗ sai
+        var shape = new string(raw.Take(80).Select(c => char.IsLetterOrDigit(c) ? 'x' : c).ToArray());
+        return $"chuỗi không hợp lệ ({ex.Message}) — dạng: {shape} (dài {raw.Length} ký tự)";
+    }
 }
 
 static RateLimitPartition<string> PerIp(HttpContext http, int limit, TimeSpan window) =>
