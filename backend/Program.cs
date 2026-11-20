@@ -104,9 +104,12 @@ app.Run();
 
 // Neon cho chuỗi dạng "postgresql://user:pass@host/db?sslmode=require" → đổi sang dạng Npgsql hiểu được.
 // Chuỗi dạng "Host=...;Database=..." thì giữ nguyên.
+// Tự bỏ phần thừa hay dính khi copy từ Neon: "psql '...'", "DATABASE_URL=...", dấu nháy, dấu cách.
 static string? PgConnectionString(string? raw)
 {
-    if (raw is null || !(raw.StartsWith("postgres://") || raw.StartsWith("postgresql://"))) return raw;
+    var start = raw?.IndexOf("postgres", StringComparison.Ordinal) ?? -1;
+    if (start < 0 || !raw![start..].Contains("://")) return raw?.Trim();
+    raw = raw[start..].Trim().TrimEnd('\'', '"', ';');
     var uri = new Uri(raw);
     var user = uri.UserInfo.Split(':', 2);
     return new NpgsqlConnectionStringBuilder
